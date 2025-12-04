@@ -1,0 +1,36 @@
+# Build outputs
+build/
+out/
+target/
+.gradle/
+.mvn/wrapper/maven-wrapper.properties
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+!.env.example
+
+# Docker
+docker-compose.override.yml
+
+# ElasticSearch data (if local)
+elasticsearch_data/
+postgres_data/

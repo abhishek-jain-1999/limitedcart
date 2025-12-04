@@ -1,0 +1,303 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - limitedcart-net
+
+
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: Lf4sFgH7QpW8rYbN6dZx3A
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - limitedcart-net
+
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    container_name: temporal
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD}
+      - POSTGRES_SEEDS=postgres
+      - DBNAME=temporal_db
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/dynamicconfig/development.yaml
+    ports:
+      - "7233:7233"
+    volumes:
+      - ./docker/temporal/dynamicconfig:/etc/temporal/dynamicconfig
+    networks:
+      - limitedcart-net
+
+  temporal-ui:
+    image: temporalio/ui:2.20.0
+    container_name: temporal-ui
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_UI_PUBLIC_PATH=/temporal
+
+    networks:
+      - limitedcart-net
+
+  zipkin:
+    image: openzipkin/zipkin:3.4
+    container_name: zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    networks:
+      - limitedcart-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.4
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - limitedcart-net
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: auth-service
+    image: limitedcart/auth-service
+    container_name: auth-service
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_DB: ${AUTH_DB}
+      KAFKA_BOOTSTRAP: kafka:9092
+      TEMPORAL_SERVICE_ADDRESS: temporal:7233
+
+      JWT_SECRET: ${JWT_SECRET}
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+
+    networks:
+      - limitedcart-net
+
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: product-service
+    image: limitedcart/product-service
+    container_name: product-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PRODUCT_DB: ${PRODUCT_DB}
+      KAFKA_BOOTSTRAP: kafka:9092
+      TEMPORAL_SERVICE_ADDRESS: temporal:7233
+
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+
+    networks:
+      - limitedcart-net
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: inventory-service
+    image: limitedcart/inventory-service
+    container_name: inventory-service
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      INVENTORY_DB: ${INVENTORY_DB}
+      KAFKA_BOOTSTRAP: kafka:9092
+      TEMPORAL_SERVICE_ADDRESS: temporal:7233
+
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+
+    networks:
+      - limitedcart-net
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: order-service
+    image: limitedcart/order-service
+    container_name: order-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      temporal:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ORDERS_DB: ${ORDERS_DB}
+      KAFKA_BOOTSTRAP: kafka:9092
+      TEMPORAL_ADDRESS: temporal:7233
+
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+
+    networks:
+      - limitedcart-net
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: payment-service
+    image: limitedcart/payment-service
+    container_name: payment-service
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PAYMENT_DB: ${PAYMENT_DB}
+      KAFKA_BOOTSTRAP: kafka:9092
+      TEMPORAL_SERVICE_ADDRESS: temporal:7233
+
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+
+    networks:
+      - limitedcart-net
+
+  temporal-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: temporal-worker
+    image: limitedcart/temporal-worker
+    container_name: temporal-worker
+    depends_on:
+      - order-service
+      - inventory-service
+      - payment-service
+      - temporal
+      - kafka
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_TASK_QUEUE: ${TEMPORAL_TASK_QUEUE}
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT}
+    networks:
+      - limitedcart-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      NGINX_BASIC_AUTH_USER: ${NGINX_BASIC_AUTH_USER}
+      NGINX_BASIC_AUTH_PASSWORD: ${NGINX_BASIC_AUTH_PASSWORD}
+    entrypoint: ["/entrypoint.sh"]
+    command: ["nginx", "-g", "daemon off;"]
+    depends_on:
+      - auth-service
+      - product-service
+      - inventory-service
+      - order-service
+      - payment-service
+    ports:
+      - "${GATEWAY_PORT}:80"
+    networks:
+      - limitedcart-net
+
+networks:
+  limitedcart-net:
+
+volumes:
+  postgres_data:
+  kafka_data:
+  elasticsearch_data:

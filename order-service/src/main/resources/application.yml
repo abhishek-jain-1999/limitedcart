@@ -1,0 +1,43 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${ORDERS_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+server:
+  port: ${ORDER_SERVICE_PORT:8084}
+
+app:
+  kafka:
+    topics:
+      orderCreated: ${KAFKA_TOPIC_ORDER_CREATED:orders.created}
+      orderConfirmed: ${KAFKA_TOPIC_ORDER_CONFIRMED:orders.confirmed}
+      orderFailed: ${KAFKA_TOPIC_ORDER_FAILED:orders.failed}
+  temporal:
+    address: ${TEMPORAL_ADDRESS}
+    orderSagaQueue: ${TEMPORAL_TASK_QUEUE:ORDER_SAGA_QUEUE}
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}

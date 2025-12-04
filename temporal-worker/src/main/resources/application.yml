@@ -1,0 +1,23 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: temporal-worker
+server:
+  port: ${TEMPORAL_WORKER_PORT:8090}
+worker:
+  temporal:
+    task-queue: ${TEMPORAL_TASK_QUEUE:ORDER_SAGA_QUEUE}
+    target: ${TEMPORAL_ADDRESS}
+services:
+  inventory: ${INVENTORY_SERVICE_URL:http://localhost:8082}
+  payment: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+  orders: ${ORDER_SERVICE_URL:http://localhost:8084}
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}

@@ -1,0 +1,6 @@
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+frontend.keepAliveTime:
+  - value: "10s"
+    constraints: {}
