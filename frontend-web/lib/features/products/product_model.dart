@@ -30,8 +30,12 @@ class Product {
       maxQuantityPerSale: json['maxQuantityPerSale'] ?? 1,
       active: json['active'] ?? false,
       inStock: json['inStock'] ?? false,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null,
+      createdAt: json['createdAt'] is int 
+          ? DateTime.fromMillisecondsSinceEpoch(json['createdAt']) 
+          : (json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null),
+      updatedAt: json['updatedAt'] is int 
+          ? DateTime.fromMillisecondsSinceEpoch(json['updatedAt']) 
+          : (json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null),
     );
   }
 }

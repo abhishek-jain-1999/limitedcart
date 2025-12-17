@@ -6,6 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import java.math.BigDecimal
 import java.util.UUID
+import java.time.ZoneId
 
 @Entity
 @Table(name = "products")
@@ -37,8 +38,8 @@ data class ProductEntity(
             maxQuantityPerSale = maxQuantityPerSale,
             active = active,
             inStock = inStock,
-            createdAt = createdAt,
-            updatedAt = updatedAt
+            createdAt = createdAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+            updatedAt = updatedAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
         )
 }
 
@@ -50,6 +51,6 @@ data class ProductView(
     val maxQuantityPerSale: Int,
     val active: Boolean,
     val inStock: Boolean,
-    val createdAt: java.time.LocalDateTime?,
-    val updatedAt: java.time.LocalDateTime?
+    val createdAt: Long?,
+    val updatedAt: Long?
 )

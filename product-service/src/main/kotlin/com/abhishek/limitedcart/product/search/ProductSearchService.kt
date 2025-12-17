@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import java.util.UUID
 
+import java.time.ZoneId
+
 @Service
 class ProductSearchService(
     private val repository: ProductSearchRepository
@@ -23,14 +25,14 @@ class ProductSearchService(
             price = product.price,
             active = product.active,
             inStock = product.inStock,
-            createdAt = product.createdAt,
-            updatedAt = product.updatedAt
+            createdAt = product.createdAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+            updatedAt = product.updatedAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
         )
         repository.save(document)
     }
 
     fun search(query: String): List<ProductDocument> =
-        repository.findByNameContainingIgnoreCase(query)
+        repository.searchByNameOrDescription(query.lowercase())
 }
 
 @Component

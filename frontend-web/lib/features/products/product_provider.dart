@@ -29,7 +29,7 @@ class ProductProvider extends ChangeNotifier {
 
       if (data is List) {
         items = data;
-      } else if (data is Map<String, dynamic> && data['items'] is List) {
+      } else if (data is Map && data['items'] is List) {
         items = data['items'];
       } else {
         items = const [];
@@ -38,6 +38,45 @@ class ProductProvider extends ChangeNotifier {
       _products = items.map((json) => Product.fromJson(Map<String, dynamic>.from(json))).toList();
     } catch (e) {
       _error = e.toString();
+    } finally {
+      _hasLoaded = true;
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> searchProducts(String query) async {
+    if (query.trim().isEmpty) {
+      return fetchProducts();
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.client.get(
+        '/products/search',
+        queryParameters: {'q': query},
+      );
+      
+      print('Search Response Data: ${response.data}'); // DEBUG LOG
+
+      final data = response.data;
+      final List<dynamic> items;
+      
+      if (data is Map && data['items'] is List) {
+        items = data['items'];
+      } else {
+        print('Unexpected data format: ${data.runtimeType}'); // DEBUG LOG
+        items = const [];
+      }
+      
+      print('Parsed Items Count: ${items.length}'); // DEBUG LOG
+
+      _products = items.map((json) => Product.fromJson(Map<String, dynamic>.from(json))).toList();
+    } catch (e) {
+      _error = 'Search failed: ${e.toString()}';
     } finally {
       _hasLoaded = true;
       _isLoading = false;

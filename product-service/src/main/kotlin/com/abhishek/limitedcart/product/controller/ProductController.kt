@@ -8,10 +8,10 @@ import com.abhishek.limitedcart.product.service.dto.ProductListResponse
 import com.abhishek.limitedcart.product.service.dto.ProductResponse
 import com.abhishek.limitedcart.product.service.dto.UpdateProductRequest
 import jakarta.validation.Valid
-import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -59,24 +59,29 @@ class ProductController(
     }
 
     @GetMapping("/search")
-    fun searchProducts(@RequestParam("q") query: String): ResponseEntity<List<ProductResponse>> {
+    fun searchProducts(@RequestParam("q") query: String): ResponseEntity<ProductListResponse> {
         val results = productSearchService.search(query)
             .map {
-                ProductResponse(
-                    product = com.abhishek.limitedcart.product.entity.ProductView(
-                        id = UUID.fromString(it.id),
-                        name = it.name,
-                        description = it.description,
-                        price = it.price,
-                        maxQuantityPerSale = 0,
-                        active = it.active,
-                        inStock = it.inStock,
-                        createdAt = it.createdAt,
-                        updatedAt = it.updatedAt
-                    )
+                com.abhishek.limitedcart.product.entity.ProductView(
+                    id = UUID.fromString(it.id),
+                    name = it.name,
+                    description = it.description,
+                    price = it.price,
+                    maxQuantityPerSale = 0,
+                    active = it.active,
+                    inStock = it.inStock,
+                    createdAt = it.createdAt,
+                    updatedAt = it.updatedAt
                 )
             }
-        return ResponseEntity.ok(results)
+            
+        val response = ProductListResponse(
+            items = results,
+            page = 0,
+            size = results.size,
+            totalElements = results.size.toLong()
+        )
+        return ResponseEntity.ok(response)
     }
 
     @PutMapping("/{id}")
