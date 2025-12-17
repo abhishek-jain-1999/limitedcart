@@ -7,6 +7,23 @@ import jakarta.validation.constraints.NotNull
 import java.time.LocalDateTime
 import java.util.UUID
 
+data class StockView(
+    val productId: String,
+    val productName: String?,
+    val quantity: Int,
+    val reserved: Int,
+    val available: Int
+)
+
+data class InventorySummary(
+    val totalProducts: Int,
+    val totalQuantity: Int,
+    val totalReserved: Int,
+    val lowStockCount: Int,
+    val lowStockThreshold: Int = 10
+)
+
+
 data class ReserveRequest(
     @field:NotBlank
     val orderId: String,
@@ -38,3 +55,4 @@ data class ReleaseReservationRequest(
     @field:NotNull
     val reservationId: UUID
 )
+

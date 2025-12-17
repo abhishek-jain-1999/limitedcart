@@ -1,5 +1,6 @@
 package com.abhishek.limitedcart.product.controller
 
+import com.abhishek.limitedcart.common.security.UserRole
 import com.abhishek.limitedcart.product.search.ProductSearchService
 import com.abhishek.limitedcart.product.service.ProductService
 import com.abhishek.limitedcart.product.service.dto.CreateProductRequest
@@ -16,28 +17,23 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
 
 @RestController
-@RequestMapping("/products")
+@RequestMapping("/products",)
 class ProductController(
     private val productService: ProductService,
     private val productSearchService: ProductSearchService
 ) {
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize(UserRole.ADMIN_OR_WAREHOUSE)
     fun createProduct(
-        @Valid @RequestBody request: CreateProductRequest,
-        @RequestHeader(name = "X-Admin-Role", required = false) adminRole: String?
+        @Valid @RequestBody request: CreateProductRequest
     ): ResponseEntity<ProductResponse> {
-        if (adminRole != "ADMIN") {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required")
-        }
         val result = productService.createProduct(request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ProductResponse(result))
     }
@@ -48,7 +44,7 @@ class ProductController(
         return ResponseEntity.ok(ProductResponse(product))
     }
 
-    @GetMapping
+    @GetMapping("")
     fun listProducts(
         @PageableDefault(size = 20) pageable: Pageable
     ): ResponseEntity<ProductListResponse> {
@@ -84,15 +80,19 @@ class ProductController(
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize(UserRole.ADMIN_OR_WAREHOUSE)
     fun updateProduct(
         @PathVariable id: UUID,
-        @Valid @RequestBody request: UpdateProductRequest,
-        @RequestHeader(name = "X-Admin-Role", required = false) adminRole: String?
+        @Valid @RequestBody request: UpdateProductRequest
     ): ResponseEntity<ProductResponse> {
-        if (adminRole != "ADMIN") {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required")
-        }
         val updated = productService.updateProduct(id, request)
         return ResponseEntity.ok(ProductResponse(updated))
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize(UserRole.HAS_ADMIN)
+    fun deleteProduct(@PathVariable id: UUID): ResponseEntity<Void> {
+        productService.deleteProduct(id)
+        return ResponseEntity.noContent().build()
     }
 }

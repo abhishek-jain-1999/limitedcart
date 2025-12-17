@@ -3,8 +3,44 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: payment-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${PAYMENT_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+
 server:
-  port: ${PAYMENT_SERVICE_PORT:8083}
+  port: 8080
+
+app:
+  payment:
+    frontendBaseUrl: ${PAYMENT_FRONTEND_BASE_URL:http://localhost:3000}
+    providerMode: ${PAYMENT_PROVIDER_MODE:MOCK}
+  services:
+    orderServiceUrl: ${ORDER_SERVICE_URL:http://order-service:8080}
+  temporal:
+    address: ${TEMPORAL_ADDRESS:temporal:7233}
+  security:
+    allowed-origins: ${ALLOWED_HOST_CORS:http://localhost:3000}
+    jwt:
+      secret: ${JWT_SECRET}
+      issuer: limitedcart-auth
+      expiration-seconds: ${JWT_EXPIRATION}
+
 management:
   endpoints:
     web:

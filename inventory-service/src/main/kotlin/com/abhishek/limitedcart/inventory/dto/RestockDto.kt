@@ -11,5 +11,6 @@ data class RestockRequest(
 
 data class RestockResponse(
     val productId: String,
-    val availableQuantity: Int
+    val availableQuantity: Int,
+    val redisStock: Int? = null
 )

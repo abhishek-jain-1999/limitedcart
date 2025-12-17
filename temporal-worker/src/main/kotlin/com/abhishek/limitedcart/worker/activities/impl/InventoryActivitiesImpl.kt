@@ -26,6 +26,8 @@ class InventoryActivitiesImpl(
 
     override fun release(orderId: String, reservationId: String) {
         log.info("Releasing reservation {} for order {}", reservationId, orderId)
+        // NOTE: The Inventory Service's /release endpoint automatically returns stock to Redis
+        // using RedisStockService.incrementStock() with atomic Lua script before updating DB
         inventoryRestClient.post()
             .uri("/inventory/release")
             .body(ReleaseRequest(orderId, reservationId))

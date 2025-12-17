@@ -3,7 +3,12 @@ package com.abhishek.limitedcart.product
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
-@SpringBootApplication
+@SpringBootApplication(
+    scanBasePackages = [
+        "com.abhishek.limitedcart.product",
+        "com.abhishek.limitedcart.common"
+    ]
+)
 class ProductServiceApplication {
     companion object {
         @JvmStatic

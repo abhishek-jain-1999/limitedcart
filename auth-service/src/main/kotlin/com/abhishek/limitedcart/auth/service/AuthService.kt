@@ -7,6 +7,7 @@ import com.abhishek.limitedcart.auth.entity.User
 import com.abhishek.limitedcart.auth.entity.UserView
 import com.abhishek.limitedcart.auth.repository.UserRepository
 import com.abhishek.limitedcart.common.security.JwtUtil
+import com.abhishek.limitedcart.common.security.UserRole
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -32,7 +33,7 @@ class AuthService(
         val user = User(
             email = request.email.lowercase(),
             passwordHash = passwordEncoder.encode(request.password),
-            roles = mutableSetOf("ROLE_USER")
+            roles = mutableSetOf(UserRole.USER.authority)
         )
         return userRepository.save(user).asReadModel()
     }
@@ -42,7 +43,7 @@ class AuthService(
         authenticationManager.authenticate(authenticationToken)
         val user = userRepository.findByEmail(request.email.lowercase())
             .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials") }
-        val token = jwtUtil.generateToken(user.email, user.roles)
+        val token = jwtUtil.generateToken(user.email, requireNotNull(user.id).toString(), user.roles)
         return AuthTokenResponse(token = token, user = user.asReadModel())
     }
 }

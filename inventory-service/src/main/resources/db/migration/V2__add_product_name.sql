@@ -1,0 +1,1 @@
+ALTER TABLE stock ADD COLUMN product_name VARCHAR(255);

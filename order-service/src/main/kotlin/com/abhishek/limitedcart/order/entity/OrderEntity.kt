@@ -38,5 +38,8 @@ enum class OrderStatus {
     PENDING,
     CONFIRMED,
     FAILED,
+    INVENTORY_RESERVED,
+    PAYMENT_PENDING,
+    PAYMENT_CONFIRMED,
     CANCELLED
 }

@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    hikari:
+      # Connection pool settings to prevent "too many clients"
+      maximum-pool-size: 10 # Max connections per service
+      minimum-idle: 2 # Min idle connections
+      connection-timeout: 20000 # 20 seconds
+      idle-timeout: 300000 # 5 minutes
+      max-lifetime: 1200000 # 20 minutes

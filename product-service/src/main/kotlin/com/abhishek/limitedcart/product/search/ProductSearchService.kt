@@ -1,5 +1,6 @@
 package com.abhishek.limitedcart.product.search
 
+import com.abhishek.limitedcart.common.constants.KafkaTopics
 import com.abhishek.limitedcart.common.events.ProductCreatedEvent
 import com.abhishek.limitedcart.common.events.ProductUpdatedEvent
 import com.abhishek.limitedcart.product.entity.ProductEntity
@@ -39,12 +40,12 @@ class ProductEventListener(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @KafkaListener(topics = ["\${app.kafka.topics.productCreated}"], groupId = "product-search")
+    @KafkaListener(topics = [KafkaTopics.PRODUCT_CREATED], groupId = "product-search")
     fun onProductCreated(event: ProductCreatedEvent) {
         handleEvent(event.productId)
     }
 
-    @KafkaListener(topics = ["\${app.kafka.topics.productUpdated}"], groupId = "product-search")
+    @KafkaListener(topics = [KafkaTopics.PRODUCT_UPDATED], groupId = "product-search")
     fun onProductUpdated(event: ProductUpdatedEvent) {
         handleEvent(event.productId)
     }

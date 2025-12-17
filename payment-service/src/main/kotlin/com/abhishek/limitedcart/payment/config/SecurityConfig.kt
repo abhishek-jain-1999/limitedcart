@@ -18,16 +18,29 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter
 ) {
+
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                it.requestMatchers("/payments/**").authenticated()
+                it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                it.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                it.requestMatchers("/actuator/health").permitAll()
+                // POST /payments/initiate requires authentication
+                it.requestMatchers(HttpMethod.POST, "/payments/initiate").authenticated()
+                // POST /payments/process allows token-based access (no JWT required for payment page)
+                it.requestMatchers(HttpMethod.POST, "/payments/process").permitAll()
+                // Internal polling endpoint used by saga to track payments
+                it.requestMatchers(HttpMethod.GET, "/payments/order/*").permitAll()
+                // Legacy endpoints for temporal-worker (internal)
+                it.requestMatchers("/payments/charge", "/payments/refund").permitAll()
                 it.anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
+
         return http.build()
     }
 }

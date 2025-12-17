@@ -15,5 +15,11 @@ data class OrderSagaRequest(
 @WorkflowInterface
 interface OrderWorkflow {
     @WorkflowMethod
-    fun processOrder(request: OrderSagaRequest)
+    fun processOrder(request: OrderSagaRequest): OrderWorkflowResult
+
+    @io.temporal.workflow.SignalMethod
+    fun notifyPaymentCompleted(paymentId: String, status: String)
+
+    @io.temporal.workflow.SignalMethod
+    fun cancel()
 }

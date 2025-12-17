@@ -25,15 +25,17 @@ import java.time.LocalDateTime
 class InventoryService(
     private val stockRepository: StockRepository,
     private val reservationRepository: ReservationRepository,
-    private val inventoryEventPublisher: InventoryEventPublisher
+    private val inventoryEventPublisher: InventoryEventPublisher,
+    private val redisStockService: RedisStockService
 ) {
 
     @Transactional
-    fun initializeStock(productId: String) {
+    fun initializeStock(productId: String, productName: String? = null) {
         // Idempotent check - only create if doesn't exist
         if (!stockRepository.existsById(productId)) {
             val stock = Stock(
                 productId = productId,
+                productName = productName,
                 availableQuantity = 0
             )
             stockRepository.save(stock)
@@ -50,6 +52,10 @@ class InventoryService(
         val stock = stockRepository.findById(request.productId)
             .orElseThrow { ResourceNotFoundException("Stock entry for product ${request.productId} not found") }
         
+        // CRITICAL: Update Redis FIRST using atomic script to prevent stale reads
+        val newRedisStock = redisStockService.incrementStock(stock.productId, request.quantity)
+        
+        // Then update DB for audit trail
         stock.availableQuantity += request.quantity
         val saved = stockRepository.saveAndFlush(stock)
         
@@ -58,7 +64,8 @@ class InventoryService(
         
         return RestockResponse(
             productId = saved.productId,
-            availableQuantity = saved.availableQuantity
+            availableQuantity = saved.availableQuantity,
+            redisStock = newRedisStock.toInt()
         )
     }
 
@@ -117,6 +124,10 @@ class InventoryService(
         }
 
         if (reservation.status != ReservationStatus.CANCELLED) {
+            // CRITICAL: Update Redis FIRST using atomic increment to immediately return stock to pool
+            redisStockService.incrementStock(reservation.productId, reservation.quantity)
+            
+            // Then update DB for audit trail
             val stock = stockRepository.findById(reservation.productId)
                 .orElseThrow { ResourceNotFoundException("Stock entry for product ${reservation.productId} not found") }
             stock.availableQuantity += reservation.quantity
@@ -135,4 +146,46 @@ class InventoryService(
         status = status,
         expiresAt = expiresAt
     )
+
+    fun getAllStock(): List<com.abhishek.limitedcart.inventory.dto.StockView> {
+        val allStock = stockRepository.findAll()
+        val reservations = reservationRepository.findAll().groupBy { it.productId }
+        
+        return allStock.map { stock ->
+            val reserved = reservations[stock.productId]
+                ?.filter { it.status == ReservationStatus.RESERVED }
+                ?.sumOf { it.quantity } ?: 0
+            
+            com.abhishek.limitedcart.inventory.dto.StockView(
+                productId = stock.productId,
+                productName = stock.productName,
+                quantity = stock.availableQuantity + reserved,
+                reserved = reserved,
+                available = stock.availableQuantity
+            )
+        }
+    }
+
+    fun getSummary(): com.abhishek.limitedcart.inventory.dto.InventorySummary {
+        val allStock = getAllStock()
+        val lowStockThreshold = 10
+        
+        return com.abhishek.limitedcart.inventory.dto.InventorySummary(
+            totalProducts = allStock.size,
+            totalQuantity = allStock.sumOf { it.quantity },
+            totalReserved = allStock.sumOf { it.reserved },
+            lowStockCount = allStock.count { it.available < lowStockThreshold },
+            lowStockThreshold = lowStockThreshold
+        )
+    }
+
+    /**
+     * Sync all stock from Postgres to Redis.
+     * Used during startup or for manual reconciliation.
+     */
+    fun syncAllStockToRedis(): Int {
+        val allStock = stockRepository.findAll()
+        redisStockService.syncAllFromDatabase(allStock)
+        return allStock.size
+    }
 }

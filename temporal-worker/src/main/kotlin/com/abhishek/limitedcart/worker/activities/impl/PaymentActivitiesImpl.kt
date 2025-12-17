@@ -2,10 +2,13 @@ package com.abhishek.limitedcart.worker.activities.impl
 
 import com.abhishek.limitedcart.worker.activities.PaymentActivities
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import java.math.BigDecimal
-import java.util.UUID
+import java.time.Duration
+import java.time.Instant
 
 @Component
 class PaymentActivitiesImpl(
@@ -14,16 +17,24 @@ class PaymentActivitiesImpl(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun charge(orderId: String, amount: BigDecimal, userId: String): String {
-        log.info("Charging payment for order {} amount {}", orderId, amount)
+    override fun initiatePayment(orderId: String, amount: BigDecimal, userId: String): String {
+        log.info("Initiating payment for order {} amount {}", orderId, amount)
+        
         val response = paymentRestClient.post()
-            .uri("/payments/charge")
-            .body(ChargeRequest(orderId, amount, userId))
+            .uri("/payments/initiate")
+            .body(mapOf(
+                "orderId" to orderId,
+                "userId" to userId,
+                "amount" to amount,
+                "currency" to "USD"
+            ))
             .retrieve()
-            .body(ChargeResponse::class.java)
-            ?: throw IllegalStateException("Charge response missing")
-        return response.paymentId
+            .body(InitiatePaymentResult::class.java)
+            
+        return response?.paymentId?.toString() ?: throw IllegalStateException("Failed to initiate payment")
     }
+
+    private data class InitiatePaymentResult(val paymentId: java.util.UUID, val paymentLink: String)
 
     override fun refund(orderId: String, paymentId: String) {
         log.info("Refunding payment {} for order {}", paymentId, orderId)
@@ -34,7 +45,24 @@ class PaymentActivitiesImpl(
             .toBodilessEntity()
     }
 
-    private data class ChargeRequest(val orderId: String, val amount: BigDecimal, val userId: String)
-    private data class ChargeResponse(val paymentId: String, val status: String)
     private data class RefundRequest(val orderId: String, val paymentId: String, val reason: String)
+    private data class PaymentStatusResponse(
+        val paymentId: String,
+        val orderId: String,
+        val status: String
+    )
+
+    private fun fetchLatestPayment(orderId: String): PaymentStatusResponse? =
+        try {
+            paymentRestClient.get()
+                .uri("/payments/order/{orderId}", orderId)
+                .retrieve()
+                .body(PaymentStatusResponse::class.java)
+        } catch (ex: RestClientResponseException) {
+            if (ex.statusCode == HttpStatus.NOT_FOUND) {
+                null
+            } else {
+                throw ex
+            }
+        }
 }

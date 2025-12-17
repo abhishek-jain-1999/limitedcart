@@ -70,7 +70,7 @@ Added dependencies:
 **3. Updated `auth-service/src/main/kotlin/com/abhishek/limitedcart/auth/`**
 
 Changed imports:
-```kotlin
+```text
 // Before
 import com.abhishek.limitedcart.auth.security.JwtUtil
 import com.abhishek.limitedcart.auth.security.JwtAuthFilter

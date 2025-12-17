@@ -31,6 +31,7 @@
         <module>order-service</module>
         <module>payment-service</module>
         <module>temporal-worker</module>
+        <module>notification-service</module>
     </modules>
 
     <dependencyManagement>
@@ -95,6 +96,9 @@
                             <option>all-open:annotation=jakarta.persistence.Entity</option>
                             <option>all-open:annotation=jakarta.persistence.MappedSuperclass</option>
                             <option>all-open:annotation=jakarta.persistence.Embeddable</option>
+                            <option>no-arg:annotation=jakarta.persistence.Entity</option>
+                            <option>no-arg:annotation=jakarta.persistence.MappedSuperclass</option>
+                            <option>no-arg:annotation=jakarta.persistence.Embeddable</option>
                         </pluginOptions>
                     </configuration>
                     <dependencies>

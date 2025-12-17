@@ -3,6 +3,7 @@ package com.abhishek.limitedcart.common.exception
 import com.abhishek.limitedcart.common.error.ErrorResponse
 import com.abhishek.limitedcart.common.util.SharedUtils
 import jakarta.servlet.http.HttpServletRequest
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
@@ -18,6 +19,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @RestControllerAdvice
 class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
+
+    private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
 
     override fun handleMethodArgumentNotValid(
         ex: MethodArgumentNotValidException,
@@ -97,12 +100,19 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         ex: Exception,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
+        val correlationId = SharedUtils.getOrCreateCorrelationId()
+        log.error(
+            "Unhandled exception for path={} correlationId={}",
+            request.requestURI,
+            correlationId,
+            ex
+        )
         val status = HttpStatus.INTERNAL_SERVER_ERROR
         val body = ErrorResponse(
             status = status.value(),
             error = status.reasonPhrase,
             message = ex.message,
-            correlationId = SharedUtils.getOrCreateCorrelationId(),
+            correlationId = correlationId,
             path = request.requestURI
         )
         return ResponseEntity(body, status)

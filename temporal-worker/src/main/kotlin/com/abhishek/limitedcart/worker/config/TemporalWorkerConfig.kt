@@ -1,6 +1,12 @@
 package com.abhishek.limitedcart.worker.config
 
+import com.abhishek.limitedcart.common.temporal.TemporalFactories
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.temporal.client.WorkflowClient
+import io.temporal.client.WorkflowClientOptions
+import io.temporal.common.converter.DataConverter
+import io.temporal.common.converter.DefaultDataConverter
+import io.temporal.common.converter.JacksonJsonPayloadConverter
 import io.temporal.serviceclient.WorkflowServiceStubs
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -18,15 +24,28 @@ class TemporalWorkerConfig(
 ) {
 
     @Bean
-    fun workflowServiceStubs(): WorkflowServiceStubs = WorkflowServiceStubs.newServiceStubs(
-        io.temporal.serviceclient.WorkflowServiceStubsOptions.newBuilder()
-            .setTarget(temporalTarget)
-            .build()
-    )
+    fun temporalDataConverter(): DataConverter {
+        val mapper = jacksonObjectMapper()
+        val jacksonConverter = JacksonJsonPayloadConverter(mapper)
+        return DefaultDataConverter.newDefaultInstance()
+            .withPayloadConverterOverrides(jacksonConverter)
+    }
 
     @Bean
-    fun workflowClient(serviceStubs: WorkflowServiceStubs): WorkflowClient =
-        WorkflowClient.newInstance(serviceStubs)
+    fun workflowServiceStubs(): WorkflowServiceStubs {
+        return TemporalFactories.createWorkflowServiceStubs(temporalTarget)
+    }
+
+    @Bean
+    fun workflowClient(
+        serviceStubs: WorkflowServiceStubs,
+        dataConverter: DataConverter
+    ): WorkflowClient {
+        val options = WorkflowClientOptions.newBuilder()
+            .setDataConverter(dataConverter)
+            .build()
+        return WorkflowClient.newInstance(serviceStubs, options)
+    }
 
     @Bean
     fun inventoryRestClient(): RestClient {

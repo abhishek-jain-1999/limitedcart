@@ -3,7 +3,12 @@ package com.abhishek.limitedcart.auth
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
-@SpringBootApplication
+@SpringBootApplication(
+    scanBasePackages = [
+        "com.abhishek.limitedcart.auth",
+        "com.abhishek.limitedcart.common"
+    ]
+)
 class AuthServiceApplication {
     companion object {
         @JvmStatic

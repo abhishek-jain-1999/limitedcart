@@ -1,5 +1,6 @@
 package com.abhishek.limitedcart.product.messaging
 
+import com.abhishek.limitedcart.common.constants.KafkaTopics
 import com.abhishek.limitedcart.common.events.InventoryUpdatedEvent
 import com.abhishek.limitedcart.product.repository.ProductRepository
 import com.abhishek.limitedcart.product.search.ProductSearchService
@@ -14,16 +15,16 @@ class InventoryEventListener(
     private val productRepository: ProductRepository,
     private val productSearchService: ProductSearchService
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
+    private val logger = LoggerFactory.getLogger(javaClass)
 
-    @KafkaListener(topics = ["\${app.kafka.topics.inventoryUpdated}"], groupId = "product-service-inventory-sync")
+    @KafkaListener(topics = [KafkaTopics.INVENTORY_UPDATED], groupId = "product-service-inventory-sync")
     @Transactional
     fun onInventoryUpdated(event: InventoryUpdatedEvent) {
-        log.info("Received InventoryUpdatedEvent for productId: {}, quantity: {}", event.productId, event.availableQuantity)
+        logger.info("Received InventoryUpdatedEvent for productId: {}, quantity: {}", event.productId, event.availableQuantity)
         
         val uuid = runCatching { UUID.fromString(event.productId) }.getOrNull()
         if (uuid == null) {
-            log.warn("Invalid product id in event: {}", event.productId)
+            logger.warn("Invalid product id in event: {}", event.productId)
             return
         }
 
@@ -35,7 +36,7 @@ class InventoryEventListener(
             if (product.inStock != newInStockStatus) {
                 product.inStock = newInStockStatus
                 val savedProduct = productRepository.save(product)
-                log.info("Updated product {} inStock status to {}", uuid, newInStockStatus)
+                logger.info("Updated product {} inStock status to {}", uuid, newInStockStatus)
                 
                 // Update Elasticsearch index
                 productSearchService.indexProduct(savedProduct)
@@ -46,7 +47,7 @@ class InventoryEventListener(
                 productSearchService.indexProduct(product)
             }
         } else {
-            log.warn("Product {} not found for inventory update", uuid)
+            logger.warn("Product {} not found for inventory update", uuid)
         }
     }
 }

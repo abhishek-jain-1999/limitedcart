@@ -5,6 +5,12 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${AUTH_DB}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -22,14 +28,31 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+logging:
+  level:
+    com.abhishek.chat_app_backend: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.socket: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
 app:
   security:
+    allowed-origins: ${ALLOWED_HOST_CORS:http://localhost:3000}
     jwt:
       secret: ${JWT_SECRET}
       issuer: limitedcart-auth
-      expiration-seconds: 3600
+      expiration-seconds: ${JWT_EXPIRATION}
+  bootstrap:
+    admin-email: ${ADMIN_BOOTSTRAP_EMAIL:}
+    admin-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
   tracing:
     sampling:
       probability: 1.0

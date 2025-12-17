@@ -2,18 +2,18 @@
 
 ## 1. High-Level Module Overview
 
-| Module            | Default Port / Endpoint                                      | Purpose                                                                 |
-|-------------------|--------------------------------------------------------------|-------------------------------------------------------------------------|
-| `common`          | N/A                                                          | Shared contracts (entities, events, Kafka config, Temporal contracts).  |
-| `auth-service`    | `AUTH_SERVICE_URL` → default `http://localhost:8081`        | JWT-based authentication and user management.                           |
-| `product-service` | `PRODUCT_SERVICE_URL` → default `http://localhost:8084`     | Product catalog CRUD, Kafka product events, Elasticsearch indexing.     |
-| `inventory-service` | `INVENTORY_SERVICE_URL` → default `http://localhost:8082` | Inventory reservations with optimistic locking and retry semantics.     |
-| `order-service`   | `ORDER_SERVICE_URL` → default `http://localhost:8084`       | Order persistence + Temporal saga initiator + Kafka order events.       |
-| `payment-service` | `PAYMENT_SERVICE_PORT` → default `8083`                     | Mock payment gateway for charge/refund flows.                           |
-| `temporal-worker` | `TEMPORAL_WORKER_PORT` → default `8090`                     | Temporal workflow + activities executing the distributed saga steps.    |
-| `api-gateway`     | `GATEWAY_PORT` → default `8080`                             | Spring Cloud Gateway routing all external traffic to internal services. |
+| Module              | Service URL / Notes                       | Purpose                                                                |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| `common`            | N/A                                       | Shared contracts (entities, events, Kafka config, Temporal contracts). |
+| `auth-service`      | Internal: `http://auth-service:8080`      | JWT-based authentication and user management.                          |
+| `product-service`   | Internal: `http://product-service:8080`   | Product catalog CRUD, Kafka product events, Elasticsearch indexing.    |
+| `inventory-service` | Internal: `http://inventory-service:8080` | Inventory reservations with optimistic locking and retry semantics.    |
+| `order-service`     | Internal: `http://order-service:8080`     | Order persistence + Temporal saga initiator + Kafka order events.      |
+| `payment-service`   | Internal: `http://payment-service:8080`   | Mock payment gateway for charge/refund flows.                          |
+| `temporal-worker`   | Internal: `http://temporal-worker:8080`   | Temporal workflow + activities executing the distributed saga steps.   |
+| `nginx`             | External: `GATEWAY_PORT` → default `8080` | Nginx gateway routing all external traffic to internal services.       |
 
-*(Ports are configured via `.env`; defaults above are taken from `.env.example`.)*
+*(All services run on port 8080 inside Docker containers. Service URLs in `.env` use Docker internal networking. External access is via nginx on `GATEWAY_PORT`.)*
 
 ---
 
@@ -245,13 +245,13 @@ limitedcart/
 
 ## 5. Infrastructure Files
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.yml` | Spins up Postgres 15 (multi-DB init script), Redis, Kafka (Bitnami KRaft), Temporal server/UI, Zipkin—providing local infrastructure for all services. |
-| `docker/init/postgres/init-multiple-databases.sh` | Creates `auth_db`, `products_db`, `inventory_db`, `orders_db`, `temporal_db` inside the Postgres container. |
-| `.env` / `.env.example` | Centralized configuration for database credentials, Kafka bootstrap, Elasticsearch, Redis, Temporal, JWT secret, service ports & URLs. Example file contains safe defaults for onboarding. |
-| `.gitignore` | Excludes build artifacts (`target/`), IDE files, logs, OS trash; prevents accidental commits of generated files. |
-| `.mvn/wrapper/*`, `mvnw`, `mvnw.cmd` | Maven wrapper allowing reproducible builds. |
+| File                                              | Purpose                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docker-compose.yml`                              | Spins up Postgres 15 (multi-DB init script), Redis, Kafka (Bitnami KRaft), Temporal server/UI, Zipkin—providing local infrastructure for all services.                                     |
+| `docker/init/postgres/init-multiple-databases.sh` | Creates `auth_db`, `products_db`, `inventory_db`, `orders_db`, `temporal_db` inside the Postgres container.                                                                                |
+| `.env` / `.env.example`                           | Centralized configuration for database credentials, Kafka bootstrap, Elasticsearch, Redis, Temporal, JWT secret, service ports & URLs. Example file contains safe defaults for onboarding. |
+| `.gitignore`                                      | Excludes build artifacts (`target/`), IDE files, logs, OS trash; prevents accidental commits of generated files.                                                                           |
+| `.mvn/wrapper/*`, `mvnw`, `mvnw.cmd`              | Maven wrapper allowing reproducible builds.                                                                                                                                                |
 
 ---
 

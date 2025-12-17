@@ -8,10 +8,13 @@ import jakarta.persistence.Version
 
 @Entity
 @Table(name = "stock")
-class Stock(
+data class Stock(
     @Id
     @Column(name = "product_id", nullable = false, updatable = false)
     var productId: String,
+
+    @Column(name = "product_name")
+    var productName: String? = null,
 
     @Column(name = "available_quantity", nullable = false)
     var availableQuantity: Int,

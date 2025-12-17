@@ -3,7 +3,12 @@ package com.abhishek.limitedcart.inventory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
-@SpringBootApplication
+@SpringBootApplication(
+    scanBasePackages = [
+        "com.abhishek.limitedcart.inventory",
+        "com.abhishek.limitedcart.common"
+    ]
+)
 class InventoryServiceApplication {
     companion object {
         @JvmStatic

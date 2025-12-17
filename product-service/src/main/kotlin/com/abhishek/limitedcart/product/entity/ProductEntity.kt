@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "products")
-class ProductEntity(
+data class ProductEntity(
     @Column(nullable = false)
     var name: String,
 
@@ -50,6 +50,6 @@ data class ProductView(
     val maxQuantityPerSale: Int,
     val active: Boolean,
     val inStock: Boolean,
-    val createdAt: java.time.OffsetDateTime?,
-    val updatedAt: java.time.OffsetDateTime?
+    val createdAt: java.time.LocalDateTime?,
+    val updatedAt: java.time.LocalDateTime?
 )

@@ -13,7 +13,6 @@ import jakarta.persistence.UniqueConstraint
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
-import java.time.OffsetDateTime
 import java.util.UUID
 
 @Entity
@@ -24,7 +23,7 @@ import java.util.UUID
         UniqueConstraint(columnNames = ["order_id"])
     ]
 )
-class Reservation(
+data class Reservation(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "reservation_id")
@@ -48,7 +47,7 @@ class Reservation(
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
-    var createdAt: OffsetDateTime? = null
+    var createdAt: LocalDateTime? = null
 )
 
 enum class ReservationStatus {

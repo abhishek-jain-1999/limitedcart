@@ -279,24 +279,57 @@ limitedcart/
 
 ---
 
-### **Module: `order-service`** *(Placeholder - Phase 3)*
-*Purpose: Will orchestrate order workflows, coordinate with inventory and payment services via Temporal.*
+### **Module: `order-service`**
+*Purpose: Manages the aggregate root for orders, reacts to saga updates, emits Kafka events, and exposes SSE-friendly progress updates.*
 
-**Status:** Directory created, no implementation yet.
-
----
-
-### **Module: `payment-service`** *(Placeholder - Phase 3)*
-*Purpose: Will handle payment processing, refunds, and integration with payment gateways.*
-
-**Status:** Directory created, no implementation yet.
+- **`controller/OrderController.kt`**: REST endpoints to create orders, confirm/fail them, stream progress events, and accept internal callbacks from payment-service.
+- **`service/OrderService.kt`**: Starts the Temporal saga (`OrderWorkflow`) per order, updates status transitions, and publishes both Kafka (`OrderEventPublisher`) and SSE (`OrderProgressPublisher`) events. Payment callbacks funnel through `handlePaymentSuccess` / `handlePaymentFailure`, which are idempotent and now mark orders as `CONFIRMED`/`FAILED` so downstream systems instantly see payment outcomes.
+- **`entity/OrderEntity.kt`**: Extends `BaseEntity`, keeps paymentId/failureReason fields, and stores the latest saga-driven status.
+- **`config/SecurityConfig.kt`**: Requires JWT auth for customer-facing reads/writes, but whitelists internal callbacks used by payment-service and the worker.
+- **Kafka Publishers**: Emit `orders.created`, `orders.confirmed`, `orders.failed`, and `order.progress` topics used by notification-service SSE relays.
 
 ---
 
-### **Module: `temporal-worker`** *(Placeholder - Phase 3)*
-*Purpose: Will host Temporal workflow workers for saga orchestration.*
+### **Module: `payment-service`**
+*Purpose: Issues customer-facing payment links, processes card submissions through a pluggable processor, and reconciles the order saga when a payment succeeds or fails.*
 
-**Status:** Directory created, no implementation yet.
+- **Data model**: `PaymentEntity` captures `orderId`, `userId`, `amount`, `currency`, `status`, `paymentLinkId`, timestamps, and optional `transactionId`. `PaymentStatus` enum tracks `PENDING`, `REQUIRES_ACTION`, `SUCCEEDED`, `FAILED`, `REFUNDED`. Flyway migration `V1__init_payments.sql` creates the schema plus indexes on `order_id`/`payment_link_id`.
+- **Service layer**: `PaymentService` orchestrates link issuance (`initiatePayment`), card processing (`processPayment`), refunds, and exposes a polling view via `findLatestPayment(orderId)`. On every status change it updates the entity and notifies order-service through REST callbacks.
+- **Processor abstraction**: `PaymentProcessor` defines `charge`/`refund`. `MockPaymentProcessor` simulates PSP behavior (card numbers ending in `0` fail) and is wired as the default bean so a real PSP implementation can drop in later.
+- **Controllers**: `POST /payments/initiate` (JWT required), `POST /payments/process` (token-based form submission), `GET /payments/order/{orderId}` (internal saga polling), `/payments/charge` and `/payments/refund` kept temporarily for backward compatibility. Initiation responses return `{paymentId, paymentLink}` using `${PAYMENT_FRONTEND_BASE_URL}`.
+- **Security**: `SecurityConfig` enforces auth for initiation, allows the payment page or saga to call `/process` and `/order/**` via link-token auth, and keeps actuator health open for probes.
+- **Configuration**: `.env.example` now includes `PAYMENT_FRONTEND_BASE_URL`, `PAYMENT_PROVIDER_MODE`, and `ORDER_SERVICE_URL`. `application.yml` references those env vars so deployments can point to real PSPs/UI hosts later.
+
+---
+
+### **Module: `temporal-worker`**
+*Purpose: Hosts the Temporal workflow + activities that implement the order saga (reserve inventory → await payment → finalize or compensate).*
+
+- **Activities**
+  - `InventoryActivitiesImpl`: reserve/release stock via inventory-service.
+  - `OrderActivitiesImpl`: proxy order-service to confirm/fail orders and push progress updates.
+  - `PaymentActivitiesImpl`: now implements a *link-based* wait strategy. It polls `payment-service /payments/order/{orderId}` until the customer completes payment (max 15 minutes) and triggers refunds if later compensation is needed.
+- **Workflow (`OrderWorkflowImpl`)**
+  - Reserves inventory, emits progress (`INVENTORY_RESERVED`).
+  - Marks the order as `PAYMENT_PENDING`, waits for `PaymentActivities.charge()` to detect a `SUCCEEDED` payment row, then publishes `PAYMENT_CONFIRMED`.
+  - Calls `orderActivities.confirmOrder` (idempotent) so the saga stays the source of truth even if payment-service’s callback fails.
+  - On any exception it issues refunds and releases inventory before flagging the order as failed.
+- **Configuration**: `TemporalWorkerConfig` wires two `RestClient`s (order/payment) using service URLs from `.env` and registers activities with the Temporal worker factory, pointing at `ORDER_SAGA_QUEUE`.
+
+---
+
+---
+
+## **LINK-BASED PAYMENT FLOW (STEP 5)**
+
+1. **Order placement** – Customer calls `POST /orders` which kicks off the Temporal saga (inventory reservation + payment orchestration). SSE subscribers immediately receive a `PLACED` event.
+2. **Frontend initiates payment** – Using the returned `orderId`, the client calls `POST /payments/initiate` (Authenticated). `PaymentService` stores a `PENDING` row, generates a `paymentLink` (`${PAYMENT_FRONTEND_BASE_URL}/payment?token=...`), and returns it to the client.
+3. **Customer completes payment** – The UI opens the link, collects card details, and submits them to `POST /payments/process` with the link token. `PaymentProcessor` (currently the mock implementation) simulates the charge and records the PSP transaction id.
+4. **Order notified** – On success/failure, `payment-service` calls `POST /orders/{id}/payment-success` or `/payment-failure`. `OrderService` marks the order `CONFIRMED`/`FAILED`, publishes Kafka + SSE updates (`PAID`, `CONFIRMED`, `PAYMENT_FAILED`), and keeps the status idempotent so retries are safe.
+5. **Saga waits + resumes** – While the customer is paying, `PaymentActivitiesImpl.charge()` polls `/payments/order/{orderId}` until it sees `SUCCEEDED` or `FAILED` (timeout defaults to 15 minutes). Once `SUCCEEDED`, the workflow emits `PAYMENT_CONFIRMED` progress and completes. On `FAILED`/timeout it triggers refunds and releases inventory.
+6. **Notifications** – Regardless of Temporal progress, notification-service subscribers rely on the SSE feed coming from `OrderProgressPublisher`, meaning payment completion events continue to flow even if the UI connection to payment-service is interrupted.
+
+*Swapping the PSP later*: implement another `@Service` that implements `PaymentProcessor` (e.g., Stripe/Razorpay). Spring will pick it up via the interface and `PaymentService` will continue using the abstraction without changes to controllers, repositories, or worker polling.
 
 ---
 
@@ -498,11 +531,14 @@ docker exec -it limitedcart-postgres psql -U postgres -c "\l"
 # Run auth-service
 ./gradlew :auth-service:bootRun
 
-# Run product-service (default port: 8081)
+# Run product-service
 ./gradlew :product-service:bootRun
 
-# Run inventory-service (default port: 8082)
+# Run inventory-service
 ./gradlew :inventory-service:bootRun
+
+# Note: All services run on port 8080 inside Docker containers.
+# For local development, ports can be customized via environment variables.
 ```
 
 ### **Database Migrations**

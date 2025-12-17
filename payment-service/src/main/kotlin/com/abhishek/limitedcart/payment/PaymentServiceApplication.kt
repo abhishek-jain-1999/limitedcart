@@ -1,9 +1,15 @@
 package com.abhishek.limitedcart.payment
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 import org.springframework.boot.runApplication
 
-@SpringBootApplication
+@SpringBootApplication(
+    scanBasePackages = [
+        "com.abhishek.limitedcart.payment",
+        "com.abhishek.limitedcart.common",
+    ]
+)
 class PaymentServiceApplication {
     companion object {
         @JvmStatic

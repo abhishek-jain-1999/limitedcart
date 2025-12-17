@@ -6,4 +6,5 @@ import io.temporal.activity.ActivityInterface
 interface OrderActivities {
     fun confirmOrder(orderId: String, paymentId: String)
     fun failOrder(orderId: String, reason: String)
+    fun updateProgress(orderId: String, status: String, message: String)
 }
