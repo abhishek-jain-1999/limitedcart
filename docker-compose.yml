@@ -179,11 +179,11 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 50s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
@@ -225,11 +225,11 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 40s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
@@ -269,11 +269,11 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 50s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
@@ -354,7 +354,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       ALLOWED_HOST_CORS: ${ALLOWED_HOST_CORS}
 
-      PAYMENT_FRONTEND_BASE_URL: http://localhost:63342
+      PAYMENT_FRONTEND_BASE_URL: http://localhost:8080
       PAYMENT_PROVIDER_MODE: ${PAYMENT_PROVIDER_MODE}
       ORDER_SERVICE_URL: http://order-service:8080
 
@@ -364,11 +364,11 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 40s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
@@ -405,11 +405,11 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 50s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
@@ -437,25 +437,25 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
         ]
-      start_period: 20s
-      start_interval: 3s
+      start_period: 50s
+      start_interval: 5s
       interval: 300s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     networks:
       - limitedcart-net
 
-  #  frontend:
-  #    build:
-  #      context: ./frontend-web
-  #      dockerfile: Dockerfile
-  #      args:
-  #        - BASE_URL=http://localhost:8080
-  #    container_name: frontend
-  #    restart: unless-stopped
-  #    networks:
-  #      - limitedcart-net
+  frontend:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+      args:
+        - BASE_URL=http://localhost:8080
+    container_name: frontend
+    restart: unless-stopped
+    networks:
+      - limitedcart-net
 
   nginx:
     image: nginx:alpine
@@ -469,6 +469,8 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: ["nginx", "-g", "daemon off;"]
     depends_on:
+      frontend:
+        condition: service_started
       auth-service:
         condition: service_healthy
       product-service:
