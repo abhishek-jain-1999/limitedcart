@@ -8,6 +8,9 @@ target/
 # IDE files
 .idea/
 .run/
+.agent/
+frontend/node_modules
+
 *.iml
 .vscode/
 .classpath

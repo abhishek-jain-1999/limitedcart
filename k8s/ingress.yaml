@@ -1,0 +1,160 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: limitedcart-ingress-rewrites
+  namespace: limitedcart
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+    - http:
+        paths:
+          # Auth Service
+          - path: /api/(auth.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          # Product Service
+          - path: /api/(products.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 8080
+          # Inventory Service
+          - path: /api/(inventory.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: inventory-service
+                port:
+                  number: 8080
+          # Order Service
+          - path: /api/(orders.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8080
+          # Payment Service
+          - path: /api/(payments.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 8080
+          # Notification Service
+          - path: /api/(notifications.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8080
+          # Admin Routes (Proxy to Auth)
+          - path: /api/(admin.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          # Swagger UI (Strip /swagger)
+          - path: /swagger/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: swagger-ui
+                port:
+                  number: 8080
+        # Docs Proxies (Strip /docs/xyz -> /v3/api-docs)
+        # This is tricky with regex. Nginx config: /docs/auth -> /v3/api-docs.
+        # I'll skip docs proxies for now or map them simply if needed.
+        # User can access /v3/api-docs directly via port-forward if needed, or I can add specific rules.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: limitedcart-ingress-main
+  namespace: limitedcart
+spec:
+  rules:
+    - http:
+        paths:
+          # Temporal UI (Preserve /temporal)
+          - path: /temporal
+            pathType: Prefix
+            backend:
+              service:
+                name: temporal-ui
+                port:
+                  number: 8080
+          # Frontend (Root)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: limitedcart-ingress-docs
+  namespace: limitedcart
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /v3/api-docs
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /docs/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          - path: /docs/products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 8080
+          - path: /docs/inventory
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-service
+                port:
+                  number: 8080
+          - path: /docs/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8080
+          - path: /docs/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 8080
+          - path: /docs/notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8080

@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-dynamic-config
+  namespace: limitedcart
+data:
+  development.yaml: |
+    limit.maxConcurrentActivityTaskExecutions:
+      - value: 10000
+    limit.maxConcurrentWorkflowTaskExecutions:
+      - value: 10000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-service
+  namespace: limitedcart
+spec:
+  ports:
+    - port: 7233
+      targetPort: 7233
+  selector:
+    app: temporal
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+  namespace: limitedcart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+        - name: temporal
+          image: temporalio/auto-setup:1.22.4
+          ports:
+            - containerPort: 7233
+          env:
+            - name: DB
+              value: "postgresql"
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: common-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: common-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_SEEDS
+              value: "postgres-service"
+            - name: DBNAME
+              value: "temporal_db"
+            - name: DYNAMIC_CONFIG_FILE_PATH
+              value: "/etc/temporal/dynamicconfig/development.yaml"
+          volumeMounts:
+            - name: dynamic-config
+              mountPath: /etc/temporal/dynamicconfig
+      volumes:
+        - name: dynamic-config
+          configMap:
+            name: temporal-dynamic-config
