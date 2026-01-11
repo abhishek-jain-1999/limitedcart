@@ -38,28 +38,28 @@ The core philosophy is **"Accept Fast, Process Later"**. The user-facing API acc
 ```mermaid
 graph TD
     %% --- Actors ---
-    User[📱 Flutter Web\n(Customer/Admin)]
+    User["📱 Flutter Web\n(Customer/Admin)"]
     
     %% --- Gateway Layer ---
     subgraph "Infrastructure Layer"
-        Ingress[🌐 Nginx Ingress Controller]
-        Kafka[📨 Kafka Events]
-        Redis[⚡ Redis Cache]
-        TemporalServ[⏳ Temporal Server]
+        Ingress["🌐 Nginx Ingress Controller"]
+        Kafka["📨 Kafka Events"]
+        Redis["⚡ Redis Cache"]
+        TemporalService["⏳ Temporal Server"]
     end
     
     %% --- Service Layer ---
     subgraph "Core Microservices"
-        Auth[🔐 Auth Service]
-        Product[📦 Product Service]
-        Inventory[📊 Inventory Service]
-        Order[🛒 Order Service]
-        Payment[💳 Payment Service]
-        Notif[🔔 Notification Service]
+        Auth["🔐 Auth Service"]
+        Product["📦 Product Service"]
+        Inventory["📊 Inventory Service"]
+        Order["🛒 Order Service"]
+        Payment["💳 Payment Service"]
+        Notif["🔔 Notification Service"]
     end
     
     %% --- Worker Layer ---
-    Worker[⚙️ Temporal Worker\n(Saga Orchestrator)]
+    Worker["⚙️ Temporal Worker\n(Saga Orchestrator)"]
 
     %% --- Connections ---
     User -->|HTTPS/443| Ingress
